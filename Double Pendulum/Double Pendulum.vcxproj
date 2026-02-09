@@ -71,12 +71,12 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>D:\VS\Double Pendulum\Double Pendulum\SFML\include</IncludePath>
-    <LibraryPath>D:\VS\Double Pendulum\Double Pendulum\SFML\lib</LibraryPath>
+    <IncludePath>D:\VS\Double Pendulum\Double Pendulum\SFML\include;$(IncludePath)</IncludePath>
+    <LibraryPath>D:\VS\Double Pendulum\Double Pendulum\SFML\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>D:\VS\Double Pendulum\Double Pendulum\SFML\include</IncludePath>
-    <LibraryPath>D:\VS\Double Pendulum\Double Pendulum\SFML\lib</LibraryPath>
+    <IncludePath>D:\VS\Double Pendulum\Double Pendulum\SFML\include;$(IncludePath)</IncludePath>
+    <LibraryPath>D:\VS\Double Pendulum\Double Pendulum\SFML\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>

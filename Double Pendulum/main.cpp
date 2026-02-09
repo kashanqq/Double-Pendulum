@@ -3,76 +3,56 @@
 #include <string>
 #include <sstream>
 #include <iomanip>
-#include <iostream>
-#include <vector> // Добавил для удобного хранения хвоста
+#include <vector>
 #include <optional>
+#include <iostream>
 
-// --- КОНСТАНТЫ ---
-const float G = 9.81f;
-const float M1 = 1.0f;
-const float M2 = 1.0f;
-const float L1 = 1.0f;
-const float L2 = 1.0f;
-const float SCALE = 100.0f;
-const float OFFSET_X = 400.0f;
-const float OFFSET_Y = 200.0f;
+struct PhysicsParams {
+    float G = 9.81f;
+    float M1 = 1.0f;       
+    float M2 = 1.0f;      
+    float L1 = 1.0f;       
+    float L2 = 1.0f;       
+    float timeScale = 1.0f;
+};
 
-// Структура состояния
+// --- СОСТОЯНИЕ СИСТЕМЫ ---
 struct State {
     float a1 = 0; float a2 = 0;
     float w1 = 0; float w2 = 0;
 };
 
-// --- 1. ДИФФЕРЕНЦИАЛЬНЫЕ УРАВНЕНИЯ ---
-State getDerivatives(const State& s) {
+// --- ФОРМУЛЫ ---
+State getDerivatives(const State& s, const PhysicsParams& p) {
     State d;
     d.a1 = s.w1;
     d.a2 = s.w2;
 
     float del = s.a1 - s.a2;
-    float den1 = (M1 + M2) * L1 - M2 * L1 * cos(del) * cos(del);
-    float den2 = (L2 / L1) * den1;
+    float den1 = (p.M1 + p.M2) * p.L1 - p.M2 * p.L1 * cos(del) * cos(del);
+    float den2 = (p.L2 / p.L1) * den1;
 
-    float num1 = -G * (2 * M1 + M2) * sin(s.a1)
-        - M2 * G * sin(s.a1 - 2 * s.a2)
-        - 2 * sin(del) * M2 * (s.w2 * s.w2 * L2 + s.w1 * s.w1 * L1 * cos(del));
+    float num1 = -p.G * (2 * p.M1 + p.M2) * sin(s.a1)
+        - p.M2 * p.G * sin(s.a1 - 2 * s.a2)
+        - 2 * sin(del) * p.M2 * (s.w2 * s.w2 * p.L2 + s.w1 * s.w1 * p.L1 * cos(del));
 
-    float num2 = 2 * sin(del) * (s.w1 * s.w1 * L1 * (M1 + M2) + G * (M1 + M2) * cos(s.a1)
-        + s.w2 * s.w2 * L2 * M2 * cos(del));
+    float num2 = 2 * sin(del) * (s.w1 * s.w1 * p.L1 * (p.M1 + p.M2) + p.G * (p.M1 + p.M2) * cos(s.a1)
+        + s.w2 * s.w2 * p.L2 * p.M2 * cos(del));
 
     d.w1 = num1 / den1;
     d.w2 = num2 / den2;
     return d;
 }
 
-// --- 2. ЧИСЛЕННЫЕ МЕТОДЫ ---
-State solveEuler(State s, float dt) {
-    State d = getDerivatives(s);
-    s.a1 += d.a1 * dt; s.a2 += d.a2 * dt;
-    s.w1 += d.w1 * dt; s.w2 += d.w2 * dt;
-    return s;
-}
-
-State solveTrapezoidal(State s, float dt) {
-    State d1 = getDerivatives(s);
-    State s_pred = s;
-    s_pred.a1 += d1.a1 * dt; s_pred.a2 += d1.a2 * dt;
-    s_pred.w1 += d1.w1 * dt; s_pred.w2 += d1.w2 * dt;
-
-    State d2 = getDerivatives(s_pred);
-    s.a1 += (d1.a1 + d2.a1) * 0.5f * dt; s.a2 += (d1.a2 + d2.a2) * 0.5f * dt;
-    s.w1 += (d1.w1 + d2.w1) * 0.5f * dt; s.w2 += (d1.w2 + d2.w2) * 0.5f * dt;
-    return s;
-}
-
-State solveRK4(State s, float dt) {
-    State k1 = getDerivatives(s);
+// RK4 Интегратор
+State solveRK4(State s, float dt, const PhysicsParams& p) {
+    State k1 = getDerivatives(s, p);
     State s2 = s; s2.a1 += k1.a1 * dt * 0.5f; s2.a2 += k1.a2 * dt * 0.5f; s2.w1 += k1.w1 * dt * 0.5f; s2.w2 += k1.w2 * dt * 0.5f;
-    State k2 = getDerivatives(s2);
+    State k2 = getDerivatives(s2, p);
     State s3 = s; s3.a1 += k2.a1 * dt * 0.5f; s3.a2 += k2.a2 * dt * 0.5f; s3.w1 += k2.w1 * dt * 0.5f; s3.w2 += k2.w2 * dt * 0.5f;
-    State k3 = getDerivatives(s3);
+    State k3 = getDerivatives(s3, p);
     State s4 = s; s4.a1 += k3.a1 * dt; s4.a2 += k3.a2 * dt; s4.w1 += k3.w1 * dt; s4.w2 += k3.w2 * dt;
-    State k4 = getDerivatives(s4);
+    State k4 = getDerivatives(s4, p);
 
     s.a1 += (k1.a1 + 2 * k2.a1 + 2 * k3.a1 + k4.a1) * dt / 6.0f;
     s.a2 += (k1.a2 + 2 * k2.a2 + 2 * k3.a2 + k4.a2) * dt / 6.0f;
@@ -81,133 +61,200 @@ State solveRK4(State s, float dt) {
     return s;
 }
 
-float calculateEnergy(const State& s) {
-    float y1 = -L1 * cos(s.a1);
-    float y2 = y1 - L2 * cos(s.a2);
-    float V = M1 * G * y1 + M2 * G * y2;
-    float T = 0.5f * M1 * (L1 * L1) * (s.w1 * s.w1) +
-        0.5f * M2 * ((L1 * L1) * (s.w1 * s.w1) + (L2 * L2) * (s.w2 * s.w2) +
-            2 * L1 * L2 * s.w1 * s.w2 * cos(s.a1 - s.a2));
-    return T + V;
-}
-
 int main() {
+    // --- НАСТРОЙКИ ОКНА (SFML 3.0) ---
     sf::ContextSettings settings;
-    // В SFML 3.0 изменили название (AntiAliasingLevel -> antiAliasingLevel)
     settings.antiAliasingLevel = 8;
-    auto state1 = sf::State::Windowed;
-
-    sf::Vector2u size(1000u, 700u); 
-    sf::VideoMode mode(size);
-
-    // 3. Явно задаем стиль (заголовок + кнопка закрыть + изменить размер)
-    // sf::Style::Default - это битовая маска (uint32_t)
-    auto style = sf::Style::Default;
-
-    // 4. И наконец создаем окно, передавая уже готовые переменные
-    sf::RenderWindow window(sf::VideoMode({1000, 700}), "Physics Lab: Double Pendulum", style, state1, settings);
+    sf::VideoMode mode({ 1200u, 800u });
+    sf::String title("Chaos Engine: Interactive Lab");
+    auto style = static_cast<uint32_t>(sf::Style::Default);
+    auto windowState = sf::State::Windowed;
+    sf::RenderWindow window(mode, title, style, windowState, settings);
     window.setFramerateLimit(60);
 
+    // Шрифт (Обязательно нужен для меню)
     sf::Font font;
-    // Если шрифта нет, программа не упадет, но текста не будет. Лучше закинь arial.ttf к .exe
     if (!font.openFromFile("C:/Windows/Fonts/arial.ttf")) {
-        std::cerr << "Font not found" << std::endl;
+        std::cerr << "ERROR: Arial font not found!" << std::endl;
+        // Если шрифта нет, создадим пустое окно, чтобы не крашилось сразу, но текста не будет
     }
 
-    State initialState = { 3.14159f / 2.0f, 3.14159f / 2.0f, 0, 0 };
+    // --- ПЕРЕМЕННЫЕ ---
+    PhysicsParams params; // Наши параметры по умолчанию
+
+    // Начальное положение: поднимем повыше
+    State initialState = { 3.14159f / 1.1f, 3.14159f / 1.1f, 0, 0 };
     State state = initialState;
 
-    float dt = 0.016f;
-    float initialEnergy = calculateEnergy(state);
-    int currentMethod = 3;
-    std::string methodNames[] = { "", "Euler", "Trapezoidal", "Runge-Kutta 4" };
-
-    // Храним точки хвоста в обычном векторе
     std::vector<sf::Vector2f> trailPoints;
+    const float SCALE = 150.0f; // Масштаб отрисовки
+    const sf::Vector2f OFFSET = { 600.0f, 250.0f }; // Центр маятника
+
+    // --- ИНТЕРФЕЙС (GUI) ---
+    int selectedItem = 0;
+    const int ITEM_COUNT = 6;
+    // Названия параметров для отображения
+    std::string paramNames[] = { "Gravity (G)", "Mass 1 (kg)", "Mass 2 (kg)", "Length 1 (m)", "Length 2 (m)", "Time Scale" };
+
+    bool isPaused = false;
 
     while (window.isOpen()) {
-        // --- НОВАЯ ОБРАБОТКА СОБЫТИЙ (SFML 3.0) ---
+        // --- INPUT ---
         while (const std::optional event = window.pollEvent()) {
-            if (event->is<sf::Event::Closed>()) {
-                window.close();
-            }
-            // Проверка нажатия клавиш
+            if (event->is<sf::Event::Closed>()) window.close();
+
             if (const auto* keyPress = event->getIf<sf::Event::KeyPressed>()) {
-                if (keyPress->code == sf::Keyboard::Key::Num1) {
-                    currentMethod = 1; state = initialState; trailPoints.clear(); initialEnergy = calculateEnergy(state);
-                }
-                if (keyPress->code == sf::Keyboard::Key::Num2) {
-                    currentMethod = 2; state = initialState; trailPoints.clear(); initialEnergy = calculateEnergy(state);
-                }
-                if (keyPress->code == sf::Keyboard::Key::Num3) {
-                    currentMethod = 3; state = initialState; trailPoints.clear(); initialEnergy = calculateEnergy(state);
-                }
+                // R - Рестарт
                 if (keyPress->code == sf::Keyboard::Key::R) {
-                    state = initialState; trailPoints.clear();
+                    state = initialState;
+                    trailPoints.clear();
+                }
+                // P - Пауза
+                if (keyPress->code == sf::Keyboard::Key::P) {
+                    isPaused = !isPaused;
+                }
+                // Навигация по меню (Вверх/Вниз)
+                if (keyPress->code == sf::Keyboard::Key::Up) {
+                    selectedItem--;
+                    if (selectedItem < 0) selectedItem = ITEM_COUNT - 1;
+                }
+                if (keyPress->code == sf::Keyboard::Key::Down) {
+                    selectedItem++;
+                    if (selectedItem >= ITEM_COUNT) selectedItem = 0;
                 }
             }
         }
 
-        // Физика (суб-степпинг)
-        int subSteps = 10;
-        float subDt = dt / subSteps;
-        for (int i = 0; i < subSteps; i++) {
-            if (currentMethod == 1) state = solveEuler(state, subDt);
-            else if (currentMethod == 2) state = solveTrapezoidal(state, subDt);
-            else if (currentMethod == 3) state = solveRK4(state, subDt);
+        // Управление значениями (зажимаем кнопки Влево/Вправо)
+        // Проверяем нажатие вне цикла событий для плавного изменения
+        float changeSpeed = 0.05f; // Чувствительность
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left)) changeSpeed = -0.05f;
+        else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right)) changeSpeed = 0.05f;
+        else changeSpeed = 0.0f;
+
+        if (changeSpeed != 0.0f) {
+            if (selectedItem == 0) params.G += changeSpeed;
+            if (selectedItem == 1) { params.M1 += changeSpeed; if (params.M1 < 0.1f) params.M1 = 0.1f; }
+            if (selectedItem == 2) { params.M2 += changeSpeed; if (params.M2 < 0.1f) params.M2 = 0.1f; }
+            if (selectedItem == 3) { params.L1 += changeSpeed * 0.1f; if (params.L1 < 0.1f) params.L1 = 0.1f; }
+            if (selectedItem == 4) { params.L2 += changeSpeed * 0.1f; if (params.L2 < 0.1f) params.L2 = 0.1f; }
+            if (selectedItem == 5) { params.timeScale += changeSpeed * 0.1f; if (params.timeScale < 0.0f) params.timeScale = 0.0f; }
+
+            // Если меняем длину, хвост лучше очистить, а то будет глюк отрисовки
+            if (selectedItem == 3 || selectedItem == 4) trailPoints.clear();
         }
 
-        float currentEnergy = calculateEnergy(state);
-        float error = std::abs(currentEnergy - initialEnergy);
+        // --- UPDATE ---
+        if (!isPaused) {
+            float dt = 0.016f * params.timeScale; // Применяем Time Scale
+            int subSteps = 10;
+            float subDt = dt / subSteps;
 
-        float x1 = SCALE * L1 * sin(state.a1);
-        float y1 = SCALE * L1 * cos(state.a1);
-        float x2 = x1 + SCALE * L2 * sin(state.a2);
-        float y2 = y1 + SCALE * L2 * cos(state.a2);
+            for (int i = 0; i < subSteps; i++) {
+                state = solveRK4(state, subDt, params);
+            }
 
-        // Обновляем хвост
-        trailPoints.push_back({ x2 + OFFSET_X, y2 + OFFSET_Y }); // Фигурные скобки для вектора
-        if (trailPoints.size() > 1000) {
-            trailPoints.erase(trailPoints.begin());
+            // Логика хвоста
+            float x1 = SCALE * params.L1 * sin(state.a1);
+            float y1 = SCALE * params.L1 * cos(state.a1);
+            float x2 = x1 + SCALE * params.L2 * sin(state.a2);
+            float y2 = y1 + SCALE * params.L2 * cos(state.a2);
+
+            trailPoints.push_back({ x2 + OFFSET.x, y2 + OFFSET.y });
+            if (trailPoints.size() > 1500) trailPoints.erase(trailPoints.begin());
         }
 
-        window.clear(sf::Color(30, 30, 30));
+        // --- RENDER ---
+        window.clear(sf::Color(20, 20, 25)); // Темно-серый фон
 
-        // Отрисовка текста
-        sf::Text text(font); // Новый конструктор текста
-        text.setCharacterSize(18);
-        text.setFillColor(sf::Color::White);
-
-        std::stringstream ss;
-        ss << "Method: " << methodNames[currentMethod] << "\n";
-        ss << "Energy Error: " << std::scientific << error;
-        text.setString(ss.str());
-        text.setPosition({ 10.f, 10.f }); // Вектор в фигурных скобках
-        window.draw(text);
-
-        // Отрисовка хвоста
+        // 1. Рисуем след
         if (trailPoints.size() > 1) {
             sf::VertexArray trace(sf::PrimitiveType::LineStrip, trailPoints.size());
             for (size_t i = 0; i < trailPoints.size(); ++i) {
                 trace[i].position = trailPoints[i];
-                trace[i].color = sf::Color(0, 255, 255, 150);
+                // Градиент цвета от прозрачного к яркому
+                float alpha = 255.0f * ((float)i / trailPoints.size());
+                trace[i].color = sf::Color(0, 255, 255, static_cast<uint8_t>(alpha));
             }
             window.draw(trace);
         }
 
-        // Линии маятника
-        sf::Vertex line1[] = { sf::Vertex({OFFSET_X, OFFSET_Y}), sf::Vertex({x1 + OFFSET_X, y1 + OFFSET_Y}) };
-        sf::Vertex line2[] = { sf::Vertex({x1 + OFFSET_X, y1 + OFFSET_Y}), sf::Vertex({x2 + OFFSET_X, y2 + OFFSET_Y}) };
+        // 2. Расчет координат для маятника (нужен для отрисовки стержней)
+        float x1 = SCALE * params.L1 * sin(state.a1);
+        float y1 = SCALE * params.L1 * cos(state.a1);
+        float x2 = x1 + SCALE * params.L2 * sin(state.a2);
+        float y2 = y1 + SCALE * params.L2 * cos(state.a2);
 
+        sf::Vector2f center = OFFSET;
+        sf::Vector2f pos1 = { x1 + OFFSET.x, y1 + OFFSET.y };
+        sf::Vector2f pos2 = { x2 + OFFSET.x, y2 + OFFSET.y };
+
+        // 3. Стержни (Линии)
+        sf::Vertex line1[] = { sf::Vertex(center, sf::Color::White), sf::Vertex(pos1, sf::Color::White) };
+        sf::Vertex line2[] = { sf::Vertex(pos1, sf::Color::White), sf::Vertex(pos2, sf::Color::White) };
         window.draw(line1, 2, sf::PrimitiveType::Lines);
         window.draw(line2, 2, sf::PrimitiveType::Lines);
 
-        // Грузы
-        sf::CircleShape m1(10); m1.setOrigin({ 10, 10 }); m1.setPosition({ x1 + OFFSET_X, y1 + OFFSET_Y }); m1.setFillColor(sf::Color::Red);
-        sf::CircleShape m2(10); m2.setOrigin({ 10, 10 }); m2.setPosition({ x2 + OFFSET_X, y2 + OFFSET_Y }); m2.setFillColor(sf::Color::Red);
+        // 4. Массы (Круги) - размер зависит от массы!
+        float r1 = 10.0f + params.M1 * 2.0f; // Визуально меняем размер
+        float r2 = 10.0f + params.M2 * 2.0f;
 
+        sf::CircleShape m1(r1); m1.setOrigin({ r1, r1 }); m1.setPosition(pos1); m1.setFillColor(sf::Color::Red);
+        sf::CircleShape m2(r2); m2.setOrigin({ r2, r2 }); m2.setPosition(pos2); m2.setFillColor(sf::Color::Red);
         window.draw(m1);
         window.draw(m2);
+
+        // 5. Центр крепления
+        sf::CircleShape hub(5); hub.setOrigin({ 5, 5 }); hub.setPosition(center); hub.setFillColor(sf::Color::White);
+        window.draw(hub);
+
+
+        // --- GUI PANEL (Интерфейс) ---
+        // Полупрозрачная подложка слева
+        sf::RectangleShape panel({ 300.0f, 800.0f });
+        panel.setFillColor(sf::Color(0, 0, 0, 150));
+        window.draw(panel);
+
+        sf::Text guiText(font);
+        guiText.setCharacterSize(20);
+
+        // Заголовок
+        guiText.setString("CONTROLS:\n[Up/Down] Select\n[Left/Right] Change\n[P] Pause\n[R] Reset\n------------------");
+        guiText.setPosition({ 10.f, 10.f });
+        guiText.setFillColor(sf::Color::White);
+        window.draw(guiText);
+
+        // Отрисовка параметров
+        float startY = 150.0f;
+        float stepY = 40.0f;
+
+        // Собираем значения в массив для цикла
+        float values[] = { params.G, params.M1, params.M2, params.L1, params.L2, params.timeScale };
+
+        for (int i = 0; i < ITEM_COUNT; i++) {
+            std::stringstream ss;
+            // Если этот пункт выбран, рисуем стрелочку ">"
+            if (i == selectedItem) ss << "> ";
+            else ss << "  ";
+
+            ss << paramNames[i] << ": " << std::fixed << std::setprecision(2) << values[i];
+
+            guiText.setString(ss.str());
+            guiText.setPosition({ 10.f, startY + i * stepY });
+
+            // Подсветка выбранного (Желтый) или обычный (Серый)
+            if (i == selectedItem) guiText.setFillColor(sf::Color::Yellow);
+            else guiText.setFillColor(sf::Color(180, 180, 180));
+
+            window.draw(guiText);
+        }
+
+        if (isPaused) {
+            sf::Text pauseText(font, "PAUSED", 40);
+            pauseText.setFillColor(sf::Color::Red);
+            pauseText.setPosition({ 550.f, 50.f });
+            window.draw(pauseText);
+        }
 
         window.display();
     }
