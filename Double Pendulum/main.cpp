@@ -10,7 +10,6 @@
 
 
 // "LIBRARY" SECTION
-// В C++ нет встроенного solver'а, поэтому мы эмулируем библиотеку.
 namespace PhysicsEngine {
 
     struct Params {
@@ -49,7 +48,7 @@ namespace PhysicsEngine {
         return d;
     }
 
-    // --- BUILT-IN / LIBRARY METHOD REPLACEMENT ---
+    // BUILT-IN / LIBRARY METHOD REPLACEMENT
     State solve(State s, float dt, const Params& p) {
         State k1 = getDerivatives(s, p);
         State s2 = s; s2.a1 += k1.a1 * dt * 0.5f; s2.a2 += k1.a2 * dt * 0.5f; s2.w1 += k1.w1 * dt * 0.5f; s2.w2 += k1.w2 * dt * 0.5f;
@@ -96,7 +95,6 @@ int main() {
         std::cerr << "Arial font not found!" << std::endl;
     }
 
-    // 
     PhysicsEngine::Params params;
     PhysicsEngine::State initialState = { 3.14159f / 2.0f, 3.14159f / 2.0f, 0, 0 };
     PhysicsEngine::State state = initialState;
