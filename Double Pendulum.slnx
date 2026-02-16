@@ -3,5 +3,5 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Project Path="Double Pendulum/Double Pendulum.vcxproj" />
+  <Project Path="Double Pendulum/Double Pendulum.vcxproj" Id="4befbd60-73c2-4a8e-8d2d-4ae0f439a28a" />
 </Solution>
